@@ -1,32 +1,33 @@
+/***************************************************************************//**
+
+  @file         main.c
+
+  @author       Stephen Brennan
+
+  @date         Thursday,  8 January 2015
+
+  @brief        LSH (Libstephen SHell)
+
+*******************************************************************************/
+
 #include <sys/wait.h>
-#include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <linux/limits.h> 
 #include <string.h>
-#include <fcntl.h>
+#include <pwd.h>
 #include <errno.h>
-#include <dirent.h>
-
 
 
 /*
   Function Declarations for builtin shell commands:
  */
-void recursive(const char *name, int indent);
-
 int lsh_cd(char **args);
 int lsh_help(char **args);
 int lsh_exit(char **args);
-int lsh_cat(char **args);
-int lsh_ls(int argc,char **args);
-int lsh_cp(int argc,char **args);
-void lsh_rm(int argc,char **args);
-void lsh_touch(int argc,char **args);
-void lsh_rmdir(int argc,char **args);
-int lsh_mkdir(const char *path);
+int lsh_cat(int argc, char *argv[]);
+int lsh_touch(int argc, char *argv[]);
 
 /*
   List of builtin commands, followed by their corresponding functions.
@@ -36,12 +37,7 @@ char *builtin_str[] = {
   "help",
   "exit",
   "cat",
-  "ls",
-  "cp",
-  "rm",
-  "touch",
-  "rmdir",
-  "mkdir"
+  "touch"
 };
 
 int(*builtin_func[]) (char **) = {
@@ -49,216 +45,86 @@ int(*builtin_func[]) (char **) = {
   &lsh_help,
   &lsh_exit,
   &lsh_cat,
-  &lsh_ls,
-  &lsh_cp,
-  &lsh_rm,
-  &lsh_touch,
-  &lsh_rmdir,
-  &lsh_mkdir
+  &lsh_touch
 };
 
 int lsh_num_builtins() {
 	return sizeof(builtin_str) / sizeof(char *);
 }
 
-int lsh_cat(char **args)
-{
-	int fp;
-	char ch[99];
-	int op;
+/*
+  Builtin function implementations.
+*/
 
-	fp = open(args[1], O_RDONLY);
+/**
+   @brief Bultin command: change directory.
+   @param args List of args.  args[0] is "cd".  args[1] is the directory.
+   @return Always returns 1, to continue executing.
+ */
+int main(int argc, char *argv[]) {
+	FILE *new;
 
-	while (op = read(fp, ch, 99)) {
-
-		write(1, ch, op);
-	}
-	printf("\n");
-	close(fp);
-
-}
-
-int lsh_ls(int argc,char **args)
-{
-	struct dirent **name;
-	int n;
-	//printf("%s",argv[1]);
-	if (argc == 1)
-	{
-		n = scandir(".", &name, NULL, alphasort);
-		while (n--)
-		{
-			printf("%s\n", name[n]->d_name);
-			free(name[n]);
+	if (argc == 2) {
+		if (fopen(argv[1], "r") != NULL) {
+			puts("ERROR: File already exists");
 		}
-		free(name);
-	}
-	else if (argc == 2 || args[1] == "-R") {
-		//printf("sd\n");
-		recursive(".", 0);
-		// return 0;
-
-	}
-	exit(EXIT_SUCCESS);
-}
-
-
-void recursive(const char *name, int indent)
-{
-	DIR *dir;
-	struct dirent *entry;
-
-	if (!(dir = opendir(name)))
-		return;
-
-	while ((entry = readdir(dir)) != NULL) {
-		if (entry->d_type == DT_DIR) {
-			char path[1024];
-			if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
-				continue;
-			sprintf(path, "%s", entry->d_name);
-			printf("%*s[[%s]]\n", indent, "", entry->d_name);
-			recursive(path, indent + 3);
+		else if ((new = fopen(argv[1], "w")) == NULL) {
+			puts("ERROR");
 		}
-		else {
-			printf("%*s-> %s\n", indent, "", entry->d_name);
-		}
+		fclose(new);
 	}
-	closedir(dir);
+	else {
+		puts("ERROR:");
+		puts("Usage: ./make_file [file name]");
+	}
+
+	return(0);
 }
 
-#define SIZE 1024
+void print_error(char *this, char *dirname) {
+	fprintf(stderr, "%s cannot go to %s\n%s\n", this, dirname, strerror(errno));
 
-int lsh_cp(int argc, char** args)
-{
-	int Source, Destination, ReadBuffer, WriteBuffer;
-	char *buff[SIZE];
-
-	if (argc != 3 || args[1] == "--help")
-	{
-		printf("\nUsage: cpcmd source destination\n");
-		exit(EXIT_FAILURE);
-	}
-
-	//printf("%s\n",argv[1]);
-	//printf("%s\n",argv[2]);
-	//printf("%d\n",argv[3]);
-	Source = open(args[1], O_RDONLY);
-
-	if (Source == -1)
-	{
-		printf("\nError opening file %s errno = %d\n", args[1], errno);
-		exit(EXIT_FAILURE);
-	}
-
-	Destination = open(args[2], O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
-
-	if (Destination == -1)
-	{
-		printf("\nError opening file %s errno = %d\n", args[2], errno);
-		exit(EXIT_FAILURE);
-	}
-
-
-	while ((ReadBuffer = read(Source, buff, SIZE)) > 0)
-	{
-		if (write(Destination, buff, ReadBuffer) != ReadBuffer)
-			printf("\nError in writing data to \n");
-	}
-
-
-	if (close(Source) == -1)
-		printf("\nError in closing file\n");
-
-	if (close(Destination) == -1)
-		printf("\nError in closing file\n");
-
+	exit(EXIT_FAILURE);
 }
 
-void lsh_rm(int argc, char** args) {
-	if (argc != 2 || args[1] == "--help")
-	{
-		printf("\nusage: rm FileTodelete\n");
-	}
-	int status;
-	status = remove(args[1]);
-	if (status == 0)
-	{
-		printf("successfull\n");
-	}
-	else
-	{
-		printf("Unsuccessfull\n");
-	}
+void print_usage(char *this) {
+	fprintf(stderr, "SYNTAX ERROR:\nUsage: %s [dir_name]\n", this);
+
+	exit(EXIT_FAILURE);
 }
 
-int retvalue;
-void lsh_touch(int argc, char** args) {
-	if (argc != 2 || args[1] == "--help") {
-		printf("Usage::touch textfile To modify\n");
-	}
-	retvalue = utime(args[1], NULL);
-	if (retvalue == 0) {
-		printf("Timestamp modified\n");
-	}
-}
-
-int lsh_mkdir(const char *path)
-{
-
-	const size_t len = strlen(path);
-	char _path[PATH_MAX];
-	char *p;
-
+int lsh_cat(int argc, char *argv[]) {
 	errno = 0;
 
-	/* Copy string so its mutable */
-	if (len > sizeof(_path) - 1) {
-		errno = ENAMETOOLONG;
-		return -1;
-	}
-	strcpy(_path, path);
-
-	/* Iterate the string */
-	for (p = _path + 1; *p; p++) {
-		if (*p == '/') {
-			/* Temporarily truncate */
-			*p = '\0';
-
-			if (mkdir(_path, S_IRWXU) != 0) {
-				if (errno != EEXIST)
-					return -1;
-			}
-
-			*p = '/';
+	if (argc == 2) {
+		if (chdir(argv[1])) {
+			print_error(argv[0], argv[1]);
 		}
-	}
 
-	if (mkdir(_path, S_IRWXU) != 0) {
-		if (errno != EEXIST)
-			return -1;
+		puts("\nThe cd command is ussualy built right into the shell");
+		puts("our change_dir command is on a different process so");
+		puts("the change happens but is changed back once the process ends\n");
+
+		printf("Directory changed to %s\n", get_current_dir_name());
+	}
+	else if (argc == 1) {
+		struct passwd *user = getpwnam(getlogin());
+		if (chdir(user->pw_dir)) {
+			print_error(argv[0], (user->pw_dir));
+		}
+
+		puts("\nThe cd command is ussualy built right into the shell");
+		puts("our change_dir command is on a different process so");
+		puts("the change happens but is changed back once the process ends\n");
+
+		printf("Directory changed to %s\n", get_current_dir_name());
+	}
+	else {
+		print_usage(argv[0]);
 	}
 
 	return 0;
 }
-
-void lsh_rmdir(int argc, char** args) {
-
-
-	if (argc != 2 || args[1] == "--help")
-	{
-		printf("\nusage: rm File To delete\n");
-		// break;
-	}
-	char *cmd = "mkdir";
-	char *argv[3];
-	argv[0] = "mkdir";
-	argv[1] = argv[1];
-	argv[2] = NULL;
-
-	execvp(cmd, args);
-}
-
 int lsh_cd(char **args)
 {
 	if (args[1] == NULL) {
@@ -272,10 +138,15 @@ int lsh_cd(char **args)
 	return 1;
 }
 
+/**
+   @brief Builtin command: print help.
+   @param args List of args.  Not examined.
+   @return Always returns 1, to continue executing.
+ */
 int lsh_help(char **args)
 {
 	int i;
-	printf("Ivan Odak's LSH\n");
+	printf("Stephen Brennan's LSH\n");
 	printf("Type program names and arguments, and hit enter.\n");
 	printf("The following are built in:\n");
 
@@ -287,11 +158,21 @@ int lsh_help(char **args)
 	return 1;
 }
 
+/**
+   @brief Builtin command: exit.
+   @param args List of args.  Not examined.
+   @return Always returns 0, to terminate execution.
+ */
 int lsh_exit(char **args)
 {
 	return 0;
 }
 
+/**
+  @brief Launch a program and wait for it to terminate.
+  @param args Null terminated list of arguments (including program).
+  @return Always returns 1, to continue execution.
+ */
 int lsh_launch(char **args)
 {
 	pid_t pid;
@@ -319,6 +200,11 @@ int lsh_launch(char **args)
 	return 1;
 }
 
+/**
+   @brief Execute shell built-in or launch program.
+   @param args Null terminated list of arguments.
+   @return 1 if the shell should continue running, 0 if it should terminate
+ */
 int lsh_execute(char **args)
 {
 	int i;
@@ -338,7 +224,10 @@ int lsh_execute(char **args)
 }
 
 #define LSH_RL_BUFSIZE 1024
-
+/**
+   @brief Read a line of input from stdin.
+   @return The line from stdin.
+ */
 char *lsh_read_line(void)
 {
 	int bufsize = LSH_RL_BUFSIZE;
@@ -381,7 +270,11 @@ char *lsh_read_line(void)
 
 #define LSH_TOK_BUFSIZE 64
 #define LSH_TOK_DELIM " \t\r\n\a"
-
+/**
+   @brief Split a line into tokens (very naively).
+   @param line The line.
+   @return Null-terminated array of tokens.
+ */
 char **lsh_split_line(char *line)
 {
 	int bufsize = LSH_TOK_BUFSIZE, position = 0;
@@ -415,7 +308,9 @@ char **lsh_split_line(char *line)
 	return tokens;
 }
 
-
+/**
+   @brief Loop getting input and executing it.
+ */
 void lsh_loop(void)
 {
 	char *line;
@@ -433,6 +328,12 @@ void lsh_loop(void)
 	} while (status);
 }
 
+/**
+   @brief Main entry point.
+   @param argc Argument count.
+   @param argv Argument vector.
+   @return status code
+ */
 int main(int argc, char **argv)
 {
 	// Load config files, if any.

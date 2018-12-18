@@ -18,6 +18,7 @@
 #include <string.h>
 #include <pwd.h>
 #include <errno.h>
+#include <dirent.h>
 
 
 /*
@@ -28,6 +29,7 @@ int lsh_help(char **args);
 int lsh_exit(char **args);
 int lsh_cat(int argc, char *argv[]);
 int lsh_touch(int argc, char *argv[]);
+int lsh_ls(int argc, char *argv[]);
 
 /*
   List of builtin commands, followed by their corresponding functions.
@@ -37,7 +39,8 @@ char *builtin_str[] = {
   "help",
   "exit",
   "cat",
-  "touch"
+  "touch",
+  "ls"
 };
 
 int(*builtin_func[]) (char **) = {
@@ -45,7 +48,8 @@ int(*builtin_func[]) (char **) = {
   &lsh_help,
   &lsh_exit,
   &lsh_cat,
-  &lsh_touch
+  &lsh_touch,
+  &lsh_ls
 };
 
 int lsh_num_builtins() {
@@ -61,7 +65,50 @@ int lsh_num_builtins() {
    @param args List of args.  args[0] is "cd".  args[1] is the directory.
    @return Always returns 1, to continue executing.
  */
-int main(int argc, char *argv[]) {
+
+static int filter(const struct dirent *unused) {
+	return 1;
+}
+
+void print_error(char *this, char *dir) {
+	fprintf(stderr, "%s cannot list from %s\n%s\n", this, dir, strerror(errno));
+	exit(EXIT_FAILURE);
+}
+
+void print_usage(char *this) {
+	puts("ERROR:");
+	fprintf(stderr, "Usage: %s [directory]\n", this);
+	exit(EXIT_FAILURE);
+}
+
+int lsh_ls(int argc, char *argv[]) {
+	errno = 0;
+	struct dirent **contents;
+	int content_count;
+
+	if (argc < 2) {
+		if ((content_count = scandir("./", &contents, filter, alphasort)) < 0) {
+			print_error(argv[0], "./");
+		}
+	}
+	else if (argc == 2) {
+		if ((content_count = scandir(argv[1], &contents, filter, alphasort)) < 0) {
+			print_error(argv[0], argv[1]);
+		}
+	}
+	else {
+		print_usage(argv[0]);
+	}
+
+	int i;
+	for (i = 0; i < content_count; i++) {
+		puts(contents[i]->d_name);
+	}
+
+	return 0;
+}
+
+int lsh_touch(int argc, char *argv[]) {
 	FILE *new;
 
 	if (argc == 2) {

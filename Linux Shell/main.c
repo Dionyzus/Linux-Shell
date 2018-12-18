@@ -27,9 +27,9 @@
 int lsh_cd(char **args);
 int lsh_help(char **args);
 int lsh_exit(char **args);
-int lsh_cat(int argc, char *argv[]);
-int lsh_touch(int argc, char *argv[]);
-int lsh_ls(int argc, char *argv[]);
+int lsh_cat(char **args);
+int lsh_touch(char **args);
+int lsh_ls(char **args);
 
 /*
   List of builtin commands, followed by their corresponding functions.
@@ -81,23 +81,23 @@ void print_usage(char *this) {
 	exit(EXIT_FAILURE);
 }
 
-int lsh_ls(int argc, char *argv[]) {
+int lsh_ls(char **args) {
 	errno = 0;
 	struct dirent **contents;
 	int content_count;
 
-	if (argc < 2) {
+	if (args < 2) {
 		if ((content_count = scandir("./", &contents, filter, alphasort)) < 0) {
-			print_error(argv[0], "./");
+			print_error(args[0], "./");
 		}
 	}
-	else if (argc == 2) {
-		if ((content_count = scandir(argv[1], &contents, filter, alphasort)) < 0) {
-			print_error(argv[0], argv[1]);
+	else if (args == 2) {
+		if ((content_count = scandir(args[1], &contents, filter, alphasort)) < 0) {
+			print_error(args[0], args[1]);
 		}
 	}
 	else {
-		print_usage(argv[0]);
+		print_usage(args[0]);
 	}
 
 	int i;
@@ -108,14 +108,14 @@ int lsh_ls(int argc, char *argv[]) {
 	return 0;
 }
 
-int lsh_touch(int argc, char *argv[]) {
+int lsh_touch(char **args) {
 	FILE *new;
 
-	if (argc == 2) {
-		if (fopen(argv[1], "r") != NULL) {
+	if (args == 2) {
+		if (fopen(args[1], "r") != NULL) {
 			puts("ERROR: File already exists");
 		}
-		else if ((new = fopen(argv[1], "w")) == NULL) {
+		else if ((new = fopen(args[1], "w")) == NULL) {
 			puts("ERROR");
 		}
 		fclose(new);
@@ -140,12 +140,12 @@ void print_usage(char *this) {
 	exit(EXIT_FAILURE);
 }
 
-int lsh_cat(int argc, char *argv[]) {
+int lsh_cat(char **args) {
 	errno = 0;
 
-	if (argc == 2) {
-		if (chdir(argv[1])) {
-			print_error(argv[0], argv[1]);
+	if (args == 2) {
+		if (chdir(args[1])) {
+			print_error(args[0], args[1]);
 		}
 
 		puts("\nThe cd command is ussualy built right into the shell");
@@ -154,10 +154,10 @@ int lsh_cat(int argc, char *argv[]) {
 
 		printf("Directory changed to %s\n", get_current_dir_name());
 	}
-	else if (argc == 1) {
+	else if (args == 1) {
 		struct passwd *user = getpwnam(getlogin());
 		if (chdir(user->pw_dir)) {
-			print_error(argv[0], (user->pw_dir));
+			print_error(args[0], (user->pw_dir));
 		}
 
 		puts("\nThe cd command is ussualy built right into the shell");
@@ -167,7 +167,7 @@ int lsh_cat(int argc, char *argv[]) {
 		printf("Directory changed to %s\n", get_current_dir_name());
 	}
 	else {
-		print_usage(argv[0]);
+		print_usage(args[0]);
 	}
 
 	return 0;

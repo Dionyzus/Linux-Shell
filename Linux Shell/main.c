@@ -12,6 +12,7 @@
 
 #include <sys/wait.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -27,9 +28,11 @@
 int lsh_cd(char **args);
 int lsh_help(char **args);
 int lsh_exit(char **args);
-int lsh_cat(char **args);
 int lsh_touch(char **args);
 int lsh_ls(char **args);
+int lsh_mkdir(char **args);
+int lsh_cp(char **args);
+int lsh_cat(char **args);
 
 /*
   List of builtin commands, followed by their corresponding functions.
@@ -38,18 +41,22 @@ char *builtin_str[] = {
   "cd",
   "help",
   "exit",
-  "cat",
   "touch",
-  "ls"
+  "ls",
+  "mkdir",
+  "cp",
+  "cat"
 };
 
 int(*builtin_func[]) (char **) = {
   &lsh_cd,
   &lsh_help,
   &lsh_exit,
-  &lsh_cat,
   &lsh_touch,
-  &lsh_ls
+  &lsh_ls,
+  &lsh_mkdir,
+  &lsh_cp,
+  &lsh_cat
 };
 
 int lsh_num_builtins() {
@@ -81,23 +88,87 @@ void print_usage(char *this) {
 	exit(EXIT_FAILURE);
 }
 
+int lsh_cat(char **args){
+    errno = 0;
+    FILE *fp;
+    int maxline = 1024;
+    char line[maxline];
+
+    if(args[1] != NULL){
+        if((fp = fopen(args[1], "rb")) == NULL){
+            //print_error(args[0], args[1]);
+        }
+    }
+    else{
+        //print_usage(args[0]);
+    }
+
+    while(fgets(line, maxline, fp)){
+        printf("%s", line);
+    }
+
+    fclose(fp);
+    return 1;
+}
+
+int lsh_cp(char **args){
+	errno = 0;
+    FILE *fpr, *fpw;
+	char ch;
+
+	if(args[2] == NULL){
+		//print_usage(args[0]);
+	}	
+	if((fpr = fopen(args[1], "rb")) == NULL){
+		//print_error(args[0], args[1], args[2]);
+	}
+	if((fpw = fopen(args[2], "rb")) != NULL){
+	    errno = EEXIST;
+        //print_error(args[0], args[1], args[2]);
+    }
+	if((fpw = fopen(args[2], "wb")) == NULL){
+		//print_error(args[0], args[1], args[2]);
+    }
+
+	while((ch = getc(fpr))!= EOF){
+		putc(ch, fpw);
+	}
+
+	fclose(fpr);
+	fclose(fpw);
+	
+	return 1;
+}
+
+int lsh_mkdir(char **args){
+    errno = 0;
+
+    if(args[1]!=NULL){
+        if(mkdir(args[1], (S_IRWXG | S_IRWXU))){
+            //print_error(args[0], args[1]);
+        }
+    }
+    else{
+        //print_usage(args[0]);
+    }
+
+    return 1;
+}
+
 int lsh_ls(char **args) {
 	errno = 0;
 	struct dirent **contents;
 	int content_count;
 
-	if (args < 2) {
+	if (args[1] == NULL) {
 		if ((content_count = scandir("./", &contents, filter, alphasort)) < 0) {
 			print_error(args[0], "./");
 		}
 	}
-	else if (args == 2) {
+	else if (args[1] != NULL) {
 		if ((content_count = scandir(args[1], &contents, filter, alphasort)) < 0) {
 			print_error(args[0], args[1]);
 		}
-	}
-	else {
-		print_usage(args[0]);
 	}
 
 	int i;
@@ -105,13 +176,13 @@ int lsh_ls(char **args) {
 		puts(contents[i]->d_name);
 	}
 
-	return 0;
+	return 1;
 }
 
 int lsh_touch(char **args) {
 	FILE *new;
 
-	if (args == 2) {
+	if (args[1] != NULL) {
 		if (fopen(args[1], "r") != NULL) {
 			puts("ERROR: File already exists");
 		}
@@ -125,53 +196,9 @@ int lsh_touch(char **args) {
 		puts("Usage: ./make_file [file name]");
 	}
 
-	return(0);
+	return 1;
 }
 
-void print_error(char *this, char *dirname) {
-	fprintf(stderr, "%s cannot go to %s\n%s\n", this, dirname, strerror(errno));
-
-	exit(EXIT_FAILURE);
-}
-
-void print_usage(char *this) {
-	fprintf(stderr, "SYNTAX ERROR:\nUsage: %s [dir_name]\n", this);
-
-	exit(EXIT_FAILURE);
-}
-
-int lsh_cat(char **args) {
-	errno = 0;
-
-	if (args == 2) {
-		if (chdir(args[1])) {
-			print_error(args[0], args[1]);
-		}
-
-		puts("\nThe cd command is ussualy built right into the shell");
-		puts("our change_dir command is on a different process so");
-		puts("the change happens but is changed back once the process ends\n");
-
-		printf("Directory changed to %s\n", get_current_dir_name());
-	}
-	else if (args == 1) {
-		struct passwd *user = getpwnam(getlogin());
-		if (chdir(user->pw_dir)) {
-			print_error(args[0], (user->pw_dir));
-		}
-
-		puts("\nThe cd command is ussualy built right into the shell");
-		puts("our change_dir command is on a different process so");
-		puts("the change happens but is changed back once the process ends\n");
-
-		printf("Directory changed to %s\n", get_current_dir_name());
-	}
-	else {
-		print_usage(args[0]);
-	}
-
-	return 0;
-}
 int lsh_cd(char **args)
 {
 	if (args[1] == NULL) {

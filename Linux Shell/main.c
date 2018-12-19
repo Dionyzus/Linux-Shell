@@ -83,70 +83,6 @@ static int filter(const struct dirent *unused) {
 	return 1;
 }
 
-void print_error(char *this) {
-	
-	puts("ERROR: ");
-	if (*this == "cat")
-	{
-		fprintf(stderr, "%s cannot concat given arguments\n",
-			this,strerror(errno));
-	}
-	if (*this == "cp")
-	{
-		fprintf(stderr, "%s cannot copy given arguments\n", this, strerror(errno));
-	}
-	if (*this == "mkdir")
-	{
-		fprintf(stderr, "%s cannot make directory\n",
-			this,strerror(errno));
-	}
-	if (*this == "ls")
-	{
-		fprintf(stderr, "%s cannot list from given directory\n", this,strerror(errno));
-	}
-	if (*this == "rm")
-	{
-		fprintf(stderr, "%s: could not delete file\n",
-			this, strerror(errno));
-	}
-	if (*this == "mv")
-	{
-		fprintf(stderr, "%s cannot move given arguments\n",
-			this, strerror(errno));
-	}
-
-	exit(EXIT_FAILURE);
-}
-
-void print_usage(char *this) {
-	puts("ERROR: ");
-	if (*this == "cat")
-	{
-		fprintf(stderr, "Usage: %s [filename]", this);
-	}
-	if (*this == "cp")
-	{
-		fprintf(stderr, "Usage: %s [filename] [new filename]\n", this);
-	}
-	if (*this == "mkdir")
-	{
-		fprintf(stderr, "Usage: %s [dir_name]", this);
-	}
-	if (*this == "ls")
-	{
-		fprintf(stderr, "Usage: %s [directory]\n", this);
-	}
-	if (*this == "rm")
-	{
-		fprintf(stderr, "Usage: %s [filename]\n", this);
-	}
-	if (*this == "mv")
-	{
-		fprintf(stderr, "Usage: %s [old filename] [new filename]\n", this);
-	}
-
-	exit(EXIT_FAILURE);
-}
 
 int lsh_mv(char **args)
 {
@@ -155,11 +91,13 @@ int lsh_mv(char **args)
 	char ch;
 
 	if (args[2]==NULL) {
-		print_usage(args[0]);
+		puts("ERROR: ");
+		puts("Usage: mv [source] [destination]");
 	}
 	else if (rename(args[1], args[2]) == -1) {
-		print_error(args[0]);
-	}
+		puts("ERROR: ")
+		puts("Could not rename provided file");
+		}
 	return 1;
 }
 
@@ -168,11 +106,13 @@ int lsh_rm(char **args) {
 
 	if (args[1] != NULL) {
 		if (remove(args[1])) {
-			print_error(args[0]);
+			puts("ERROR: ")
+			puts("Could not remove provided file");
 		}
 	}
 	else {
-		print_usage(args[0]);
+		puts("ERROR: ")
+		puts("Usage: rm [file_name]");
 	}
 
 	return 1;
@@ -186,11 +126,13 @@ int lsh_cat(char **args) {
 
 	if (args[1] != NULL) {
 		if ((fp = fopen(args[1], "rb")) == NULL) {
-			print_error(args[0]);
+			puts("ERROR: ")
+			puts("Could not print file,could be empty or invalid");
 		}
 	}
 	else {
-		print_usage(args[0]);
+		puts("ERROR: ")
+		puts("Usage: cat [file_name]");
 	}
 
 	while (fgets(line, maxline, fp)) {
@@ -207,17 +149,21 @@ int lsh_cp(char **args) {
 	char ch;
 
 	if (args[2] == NULL) {
-		print_usage(args[0]);
+		puts("ERROR: ")
+		puts("Usage: cp [source] [destination]");
 	}
 	if ((fpr = fopen(args[1], "rb")) == NULL) {
-		print_error(args[0]);
+		puts("ERROR: ")
+		puts("Could not copy file");
 	}
 	if ((fpw = fopen(args[2], "rb")) != NULL) {
 		errno = EEXIST;
-		print_error(args[0]);
+		puts("ERROR: ")
+		puts("Could not copy file");
 	}
 	if ((fpw = fopen(args[2], "wb")) == NULL) {
-		print_error(args[0]);
+		puts("ERROR: ")
+		puts("Could not copy file");
 	}
 
 	while ((ch = getc(fpr)) != EOF) {
@@ -235,11 +181,13 @@ int lsh_mkdir(char **args) {
 
 	if (args[1] != NULL) {
 		if (mkdir(args[1], (S_IRWXG | S_IRWXU))) {
-			print_error(args[0]);
+			puts("ERROR: ")
+			puts("Could not create directory | already exists");
 		}
 	}
 	else {
-		print_usage(args[0]);
+		puts("ERROR: ")
+		puts("Usage: mkdir [directory_name]");
 	}
 
 	return 1;
@@ -252,13 +200,19 @@ int lsh_ls(char **args) {
 
 	if (args[1] == NULL) {
 		if ((content_count = scandir("./", &contents, filter, alphasort)) < 0) {
-			print_error(args[0]);
+			puts("ERROR: ")
+			puts("Please provide directory to list");
 		}
 	}
 	else if (args[1] != NULL) {
 		if ((content_count = scandir(args[1], &contents, filter, alphasort)) < 0) {
-			print_error(args[0]);
+			puts("ERROR: ")
+			puts("Could not list directory");
 		}
+	}
+	else{
+		puts("ERROR: ")
+		puts("Usage: ls [directory_name]");
 	}
 
 	int i;

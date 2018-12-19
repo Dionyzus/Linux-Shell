@@ -35,6 +35,7 @@ int lsh_cp(char **args);
 int lsh_cat(char **args);
 int lsh_rm(char **args);
 int lsh_mv(char **args);
+int lsh_pwd(char **args);
 
 /*
   List of builtin commands, followed by their corresponding functions.
@@ -49,7 +50,8 @@ char *builtin_str[] = {
   "cp",
   "cat",
   "rm",
-  "mv"
+  "mv",
+  "pwd"
 };
 
 int(*builtin_func[]) (char **) = {
@@ -62,7 +64,8 @@ int(*builtin_func[]) (char **) = {
   &lsh_cp,
   &lsh_cat,
   &lsh_rm,
-  &lsh_mv
+  &lsh_mv,
+  &lsh_pwd
 };
 
 int lsh_num_builtins() {
@@ -83,6 +86,13 @@ static int filter(const struct dirent *unused) {
 	return 1;
 }
 
+int lsh_pwd(char **args)
+{
+	char cwd[1024];
+	getcwd(cwd, sizeof(cwd));
+	printf("Current working dir: %s\n", cwd);
+	return 1;
+}
 
 int lsh_mv(char **args)
 {
@@ -92,10 +102,10 @@ int lsh_mv(char **args)
 
 	if (args[2]==NULL) {
 		puts("ERROR: ");
-		puts("Usage: mv [source] [destination]");
+		puts("Usage: mv [source] [new_name]");
 	}
 	else if (rename(args[1], args[2]) == -1) {
-		puts("ERROR: ")
+		puts("ERROR: ");
 		puts("Could not rename provided file");
 		}
 	return 1;
@@ -106,12 +116,12 @@ int lsh_rm(char **args) {
 
 	if (args[1] != NULL) {
 		if (remove(args[1])) {
-			puts("ERROR: ")
+			puts("ERROR: ");
 			puts("Could not remove provided file");
 		}
 	}
 	else {
-		puts("ERROR: ")
+		puts("ERROR: ");
 		puts("Usage: rm [file_name]");
 	}
 
@@ -126,12 +136,12 @@ int lsh_cat(char **args) {
 
 	if (args[1] != NULL) {
 		if ((fp = fopen(args[1], "rb")) == NULL) {
-			puts("ERROR: ")
+			puts("ERROR: ");
 			puts("Could not print file,could be empty or invalid");
 		}
 	}
 	else {
-		puts("ERROR: ")
+		puts("ERROR: ");
 		puts("Usage: cat [file_name]");
 	}
 
@@ -149,20 +159,20 @@ int lsh_cp(char **args) {
 	char ch;
 
 	if (args[2] == NULL) {
-		puts("ERROR: ")
+		puts("ERROR: ");
 		puts("Usage: cp [source] [destination]");
 	}
 	if ((fpr = fopen(args[1], "rb")) == NULL) {
-		puts("ERROR: ")
+		puts("ERROR: ");
 		puts("Could not copy file");
 	}
 	if ((fpw = fopen(args[2], "rb")) != NULL) {
 		errno = EEXIST;
-		puts("ERROR: ")
+		puts("ERROR: ");
 		puts("Could not copy file");
 	}
 	if ((fpw = fopen(args[2], "wb")) == NULL) {
-		puts("ERROR: ")
+		puts("ERROR: ");
 		puts("Could not copy file");
 	}
 
@@ -181,12 +191,12 @@ int lsh_mkdir(char **args) {
 
 	if (args[1] != NULL) {
 		if (mkdir(args[1], (S_IRWXG | S_IRWXU))) {
-			puts("ERROR: ")
+			puts("ERROR: ");
 			puts("Could not create directory | already exists");
 		}
 	}
 	else {
-		puts("ERROR: ")
+		puts("ERROR: ");
 		puts("Usage: mkdir [directory_name]");
 	}
 
@@ -200,18 +210,18 @@ int lsh_ls(char **args) {
 
 	if (args[1] == NULL) {
 		if ((content_count = scandir("./", &contents, filter, alphasort)) < 0) {
-			puts("ERROR: ")
+			puts("ERROR: ");
 			puts("Please provide directory to list");
 		}
 	}
 	else if (args[1] != NULL) {
 		if ((content_count = scandir(args[1], &contents, filter, alphasort)) < 0) {
-			puts("ERROR: ")
+			puts("ERROR: ");
 			puts("Could not list directory");
 		}
 	}
 	else{
-		puts("ERROR: ")
+		puts("ERROR: ");
 		puts("Usage: ls [directory_name]");
 	}
 

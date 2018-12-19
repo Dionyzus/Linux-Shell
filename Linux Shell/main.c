@@ -33,6 +33,8 @@ int lsh_ls(char **args);
 int lsh_mkdir(char **args);
 int lsh_cp(char **args);
 int lsh_cat(char **args);
+int lsh_rm(char **args);
+int lsh_mv(char **args);
 
 /*
   List of builtin commands, followed by their corresponding functions.
@@ -45,7 +47,9 @@ char *builtin_str[] = {
   "ls",
   "mkdir",
   "cp",
-  "cat"
+  "cat",
+  "rm",
+  "mv"
 };
 
 int(*builtin_func[]) (char **) = {
@@ -56,7 +60,9 @@ int(*builtin_func[]) (char **) = {
   &lsh_ls,
   &lsh_mkdir,
   &lsh_cp,
-  &lsh_cat
+  &lsh_cat,
+  &lsh_rm,
+  &lsh_mv
 };
 
 int lsh_num_builtins() {
@@ -77,82 +83,166 @@ static int filter(const struct dirent *unused) {
 	return 1;
 }
 
-void print_error(char *this, char *dir) {
-	fprintf(stderr, "%s cannot list from %s\n%s\n", this, dir, strerror(errno));
+void print_error(char *this) {
+	
+	puts("ERROR: ");
+	if (*this == "cat")
+	{
+		fprintf(stderr, "%s cannot concat given arguments\n",
+			this,strerror(errno));
+	}
+	if (*this == "cp")
+	{
+		fprintf(stderr, "%s cannot copy given arguments\n", this, strerror(errno));
+	}
+	if (*this == "mkdir")
+	{
+		fprintf(stderr, "%s cannot make directory\n",
+			this,strerror(errno));
+	}
+	if (*this == "ls")
+	{
+		fprintf(stderr, "%s cannot list from given directory\n", this,strerror(errno));
+	}
+	if (*this == "rm")
+	{
+		fprintf(stderr, "%s: could not delete file\n",
+			this, strerror(errno));
+	}
+	if (*this == "mv")
+	{
+		fprintf(stderr, "%s cannot move given arguments\n",
+			this, strerror(errno));
+	}
+
 	exit(EXIT_FAILURE);
 }
 
 void print_usage(char *this) {
-	puts("ERROR:");
-	fprintf(stderr, "Usage: %s [directory]\n", this);
+	puts("ERROR: ");
+	if (*this == "cat")
+	{
+		fprintf(stderr, "Usage: %s [filename]", this);
+	}
+	if (*this == "cp")
+	{
+		fprintf(stderr, "Usage: %s [filename] [new filename]\n", this);
+	}
+	if (*this == "mkdir")
+	{
+		fprintf(stderr, "Usage: %s [dir_name]", this);
+	}
+	if (*this == "ls")
+	{
+		fprintf(stderr, "Usage: %s [directory]\n", this);
+	}
+	if (*this == "rm")
+	{
+		fprintf(stderr, "Usage: %s [filename]\n", this);
+	}
+	if (*this == "mv")
+	{
+		fprintf(stderr, "Usage: %s [old filename] [new filename]\n", this);
+	}
+
 	exit(EXIT_FAILURE);
 }
 
-int lsh_cat(char **args){
-    errno = 0;
-    FILE *fp;
-    int maxline = 1024;
-    char line[maxline];
-
-    if(args[1] != NULL){
-        if((fp = fopen(args[1], "rb")) == NULL){
-            //print_error(args[0], args[1]);
-        }
-    }
-    else{
-        //print_usage(args[0]);
-    }
-
-    while(fgets(line, maxline, fp)){
-        printf("%s", line);
-    }
-
-    fclose(fp);
-    return 1;
-}
-
-int lsh_cp(char **args){
+int lsh_mv(char **args)
+{
 	errno = 0;
-    FILE *fpr, *fpw;
+	FILE *fpr, *fpw;
 	char ch;
 
-	if(args[2] == NULL){
-		//print_usage(args[0]);
-	}	
-	if((fpr = fopen(args[1], "rb")) == NULL){
-		//print_error(args[0], args[1], args[2]);
+	if (args[2]==NULL) {
+		print_usage(args[0]);
 	}
-	if((fpw = fopen(args[2], "rb")) != NULL){
-	    errno = EEXIST;
-        //print_error(args[0], args[1], args[2]);
-    }
-	if((fpw = fopen(args[2], "wb")) == NULL){
-		//print_error(args[0], args[1], args[2]);
-    }
+	else if (rename(args[1], args[2]) == -1) {
+		print_error(args[0]);
+	}
+	return 1;
+}
 
-	while((ch = getc(fpr))!= EOF){
+int lsh_rm(char **args) {
+	errno = 0;
+
+	if (args[1] != NULL) {
+		if (remove(args[1])) {
+			print_error(args[0]);
+		}
+	}
+	else {
+		print_usage(args[0]);
+	}
+
+	return 1;
+}
+
+int lsh_cat(char **args) {
+	errno = 0;
+	FILE *fp;
+	int maxline = 1024;
+	char line[maxline];
+
+	if (args[1] != NULL) {
+		if ((fp = fopen(args[1], "rb")) == NULL) {
+			print_error(args[0]);
+		}
+	}
+	else {
+		print_usage(args[0]);
+	}
+
+	while (fgets(line, maxline, fp)) {
+		printf("%s", line);
+	}
+
+	fclose(fp);
+	return 1;
+}
+
+int lsh_cp(char **args) {
+	errno = 0;
+	FILE *fpr, *fpw;
+	char ch;
+
+	if (args[2] == NULL) {
+		print_usage(args[0]);
+	}
+	if ((fpr = fopen(args[1], "rb")) == NULL) {
+		print_error(args[0]);
+	}
+	if ((fpw = fopen(args[2], "rb")) != NULL) {
+		errno = EEXIST;
+		print_error(args[0]);
+	}
+	if ((fpw = fopen(args[2], "wb")) == NULL) {
+		print_error(args[0]);
+	}
+
+	while ((ch = getc(fpr)) != EOF) {
 		putc(ch, fpw);
 	}
 
 	fclose(fpr);
 	fclose(fpw);
-	
+
 	return 1;
 }
 
-int lsh_mkdir(char **args){
-    errno = 0;
+int lsh_mkdir(char **args) {
+	errno = 0;
 
-    if(args[1]!=NULL){
-        if(mkdir(args[1], (S_IRWXG | S_IRWXU))){
-            //print_error(args[0], args[1]);
-        }
-    }
-    else{
-        //print_usage(args[0]);
-    }
+	if (args[1] != NULL) {
+		if (mkdir(args[1], (S_IRWXG | S_IRWXU))) {
+			print_error(args[0]);
+		}
+	}
+	else {
+		print_usage(args[0]);
+	}
 
-    return 1;
+	return 1;
 }
 
 int lsh_ls(char **args) {
@@ -162,12 +252,12 @@ int lsh_ls(char **args) {
 
 	if (args[1] == NULL) {
 		if ((content_count = scandir("./", &contents, filter, alphasort)) < 0) {
-			print_error(args[0], "./");
+			print_error(args[0]);
 		}
 	}
 	else if (args[1] != NULL) {
 		if ((content_count = scandir(args[1], &contents, filter, alphasort)) < 0) {
-			print_error(args[0], args[1]);
+			print_error(args[0]);
 		}
 	}
 
@@ -193,7 +283,7 @@ int lsh_touch(char **args) {
 	}
 	else {
 		puts("ERROR:");
-		puts("Usage: ./make_file [file name]");
+		puts("Usage: touch [file name]");
 	}
 
 	return 1;
@@ -220,7 +310,7 @@ int lsh_cd(char **args)
 int lsh_help(char **args)
 {
 	int i;
-	printf("Stephen Brennan's LSH\n");
+	printf("Ivan Odak's LSH\n");
 	printf("Type program names and arguments, and hit enter.\n");
 	printf("The following are built in:\n");
 
